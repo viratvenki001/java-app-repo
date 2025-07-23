@@ -1,0 +1,70 @@
+Assignment 19/07
+Create a full Jenkins pipeline that:-
+1.Builds a Java Maven project
+2.Runs code quality check using SonarQube 
+3.Builds and pushes a Docker image to DockerHub 
+4.Deploys to a docker
+
+pipeline {
+    agent any
+
+    environment {
+        SONARQUBE_SERVER = 'mysonarqubeserver'
+    }
+
+    tools {
+        maven 'maven'
+        jdk 'java'
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                git branch: 'main', url: 'https://github.com/viratvenki001/java-app-repo.git'
+            }
+        }
+
+        stage('Build') {
+            steps {
+                sh 'mvn clean package -DskipTests'
+            }
+        }
+
+        stage('SonarQube Analysis') {
+            steps {
+                withSonarQubeEnv("${SONARQUBE_SERVER}") {
+                    sh 'mvn sonar:sonar'
+                }
+            }
+        }
+        
+        stage('Docker build') {
+            steps {
+                script {
+                    withDockerRegistry(credentialsId: 'docker-cred', toolName: 'docker') {
+                        sh 'docker build -t venkivirat/java-app:latest .'
+                    }
+                }
+            }
+        }
+        stage('Docker push') {
+            steps {
+                script {
+                    withDockerRegistry(credentialsId: 'docker-cred', toolName: 'docker') {
+                        sh 'docker push venkivirat/java-app:latest'
+                    }
+                }
+            }
+        }
+        
+        stage('Docker deploy') {
+            steps {
+                script {
+                    withDockerRegistry(credentialsId: 'docker-cred', toolName: 'docker') {
+                        sh 'docker run -d -p 8082:8080 venkivirat/java-app:latest'
+                    }
+                }
+            }
+        }
+    }
+}
